@@ -1,14 +1,10 @@
-const express = require('express');
-const router = express.Router();
-const personController = require('../controllers/personController');
+import { Router } from "express";
+import { addPerson, findPerson } from "../controllers/personController.js";
+import { upload } from "../middleware/uploadMiddleware.js";
 
-// Add a new person
-router.post('/add', personController.addPerson);
+const router = Router();
 
-// Find a person by photo
-router.post('/find', personController.findPerson);
+router.post("/add", upload.array("photo", 1), addPerson);
+router.post("/find", upload.array("photo", 1), findPerson);
 
-// Get all persons
-router.get('/', personController.getAllPersons);
-
-module.exports = router;
+export default { router };

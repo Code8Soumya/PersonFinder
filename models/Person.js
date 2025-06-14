@@ -1,78 +1,52 @@
-const db = require('../config/database');
-const { Pinecone } = require('@pinecone-database/pinecone');
+import { db } from "../config/database.js";
 
 class Person {
-    static async create(personData) {
-        const { name, photo_path, vector_embedding, ...otherData } = personData;
-        const connection = await db.getConnection();
-        
+    // Creates a new person record in the database.
+    static async createPerson(name, email, gender, age) {
+        let connection;
+        console.log("[person.js] Attempting to create person");
         try {
+            connection = await db.getConnection();
+            console.log("[person.js] Database connection obtained for createPerson");
             await connection.beginTransaction();
-            
-            // Insert into MySQL
+            console.log("[person.js] Transaction started for createPerson");
             const [result] = await connection.execute(
-                'INSERT INTO persons (name, photo_path, additional_data) VALUES (?, ?, ?)',
-                [name, photo_path, JSON.stringify(otherData)]
+                "INSERT INTO person (name, email, gender, age) VALUES (?, ?, ?, ?)",
+                [name, email, gender, age]
             );
-            
-            // Insert into Pinecone
-            const pinecone = new Pinecone();
-            await pinecone.init({
-                environment: process.env.PINECONE_ENVIRONMENT,
-                apiKey: process.env.PINECONE_API_KEY
-            });
-            
-            const index = pinecone.Index(process.env.PINECONE_INDEX);
-            await index.upsert({
-                vectors: [{
-                    id: result.insertId.toString(),
-                    values: vector_embedding,
-                    metadata: { name, photo_path }
-                }]
-            });
-            
+            console.log("[person.js] Person inserted into database");
             await connection.commit();
+            console.log("[person.js] Transaction committed for createPerson");
             return result.insertId;
         } catch (error) {
-            await connection.rollback();
+            console.error("[person.js] Error in createPerson:", error.message);
+            if (connection) await connection.rollback();
             throw error;
         } finally {
-            connection.release();
+            if (connection) connection.release();
         }
     }
 
-    static async findByPhoto(vector_embedding) {
-        const pinecone = new PineconeClient();
-        await pinecone.init({
-            environment: process.env.PINECONE_ENVIRONMENT,
-            apiKey: process.env.PINECONE_API_KEY
-        });
-        
-        const index = pinecone.Index(process.env.PINECONE_INDEX);
-        const queryResponse = await index.query({
-            vector: vector_embedding,
-            topK: 5,
-            includeMetadata: true
-        });
-        
-        if (queryResponse.matches.length === 0) {
-            return null;
+    // Retrieves a person from the database by their ID.
+    static async getPersonById(personId) {
+        let connection;
+        console.log("[person.js] Attempting to get person by ID");
+        try {
+            connection = await db.getConnection();
+            console.log("[person.js] Database connection obtained for getPersonById");
+            const [persons] = await connection.execute(
+                "SELECT * FROM person WHERE id = ?",
+                [personId]
+            );
+            console.log("[person.js] Person data fetched for getPersonById");
+            return persons;
+        } catch (error) {
+            console.error("[person.js] Error in getPersonById:", error.message);
+            throw error;
+        } finally {
+            if (connection) connection.release();
         }
-        
-        // Get full person data from MySQL
-        const personIds = queryResponse.matches.map(match => match.id);
-        const [persons] = await db.execute(
-            'SELECT * FROM persons WHERE id IN (?)',
-            [personIds]
-        );
-        
-        return persons;
-    }
-
-    static async getAll() {
-        const [rows] = await db.execute('SELECT * FROM persons');
-        return rows;
     }
 }
 
-module.exports = Person; 
+export { Person };
