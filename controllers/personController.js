@@ -73,7 +73,6 @@ export async function addPerson(req, res) {
         );
         res.status(201).json({
             message: "Person and photos added successfully",
-            personId: personId,
         });
     } catch (error) {
         console.error("[personController.js] Error in addPerson:", error.message);
